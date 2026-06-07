@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: moltakaelai-backend
+    env: node
+    plan: free
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: ADMIN_SECRET
+        sync: false
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGINS
+        sync: false
