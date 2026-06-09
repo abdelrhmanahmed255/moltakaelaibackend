@@ -1,19 +1,25 @@
-function requireAdmin(req, res, next) {
-  const adminSecret = process.env.ADMIN_SECRET;
+const { validateSessionToken } = require('../lib/auth');
 
-  if (!adminSecret) {
-    return res.status(500).json({ error: 'Admin secret is not configured on server.' });
+async function requireAdmin(req, res, next) {
+  try {
+    const token =
+      (req.headers.authorization || '').replace(/^Bearer\s+/i, '') ||
+      req.headers['x-admin-secret'];
+
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const session = await validateSessionToken(token);
+    if (!session || !session.adminId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    req.admin = session.adminId;
+    next();
+  } catch (error) {
+    next(error);
   }
-
-  const token =
-    (req.headers.authorization || '').replace(/^Bearer\s+/i, '') ||
-    req.headers['x-admin-secret'];
-
-  if (token !== adminSecret) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  next();
 }
 
 module.exports = requireAdmin;

@@ -1,6 +1,13 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const requireAdmin = require('../middleware/requireAdmin');
+const Admin = require('../models/Admin');
+const {
+  verifyPassword,
+  createAdminSession,
+  revokeSessionToken,
+} = require('../lib/auth');
 const Tool = require('../models/Tool');
 const Category = require('../models/Category');
 const Article = require('../models/Article');
@@ -8,27 +15,63 @@ const Ad = require('../models/Ad');
 const Settings = require('../models/Settings');
 const Review = require('../models/Review');
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts, please try again later.' },
+});
+
+function extractBearerToken(req) {
+  return (
+    (req.headers.authorization || '').replace(/^Bearer\s+/i, '') ||
+    req.headers['x-admin-secret'] ||
+    ''
+  );
+}
+
 // Public admin auth routes (no Bearer token required)
-router.post('/login', (req, res) => {
-  const adminPassword = process.env.ADMIN_PASSWORD;
+router.post('/login', loginLimiter, async (req, res) => {
+  try {
+    const password = String(req.body?.password || '').trim();
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required' });
+    }
 
-  if (!adminPassword) {
-    return res.status(500).json({ error: 'Admin password is not configured on server.' });
+    const admin = await Admin.findOne({ username: 'admin' });
+    if (!admin || !verifyPassword(password, admin.passwordHash)) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+
+    const session = await createAdminSession(admin._id);
+    return res.json({
+      success: true,
+      token: session.token,
+      expiresAt: session.expiresAt,
+    });
+  } catch (error) {
+    console.error('Admin login error:', error);
+    return res.status(500).json({ error: 'Login failed' });
   }
+});
 
-  const password = String(req.body?.password || '').trim();
-  if (password === adminPassword.trim()) {
+router.post('/logout', async (req, res) => {
+  try {
+    const token = extractBearerToken(req);
+    await revokeSessionToken(token);
     return res.json({ success: true });
+  } catch (error) {
+    console.error('Admin logout error:', error);
+    return res.status(500).json({ error: 'Logout failed' });
   }
-
-  return res.status(401).json({ error: 'Invalid password' });
 });
 
-router.get('/verify', requireAdmin, (_req, res) => {
-  res.json({ success: true });
+router.get('/verify', requireAdmin, (req, res) => {
+  res.json({ success: true, admin: req.admin });
 });
 
-// All routes below require a valid ADMIN_SECRET Bearer token
+// All routes below require a valid admin session token
 router.use(requireAdmin);
 
 // ============ Tools ============

@@ -17,12 +17,7 @@ if (!MONGO_URI) {
   process.exit(1);
 }
 
-if (!process.env.ADMIN_SECRET) {
-  console.warn('WARNING: ADMIN_SECRET is not set. Admin API calls will fail.');
-}
-if (!process.env.ADMIN_PASSWORD) {
-  console.warn('WARNING: ADMIN_PASSWORD is not set. Admin login will fail.');
-}
+const { ensureDefaultAdmin } = require('./lib/seedAdmin');
 
 const allowedOrigins = CORS_ORIGINS.split(',').map((origin) => origin.trim());
 
@@ -50,7 +45,10 @@ const publicLimiter = rateLimit({
 mongoose.set('strictQuery', false);
 mongoose
   .connect(MONGO_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
+  .then(async () => {
+    console.log('✅ Connected to MongoDB');
+    await ensureDefaultAdmin();
+  })
   .catch((error) => {
     console.error('❌ MongoDB connection failed:', error);
     process.exit(1);
