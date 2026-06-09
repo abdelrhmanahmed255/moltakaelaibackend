@@ -18,7 +18,10 @@ if (!MONGO_URI) {
 }
 
 if (!process.env.ADMIN_SECRET) {
-  console.warn('WARNING: ADMIN_SECRET is not set. Admin routes will be disabled.');
+  console.warn('WARNING: ADMIN_SECRET is not set. Admin API calls will fail.');
+}
+if (!process.env.ADMIN_PASSWORD) {
+  console.warn('WARNING: ADMIN_PASSWORD is not set. Admin login will fail.');
 }
 
 const allowedOrigins = CORS_ORIGINS.split(',').map((origin) => origin.trim());

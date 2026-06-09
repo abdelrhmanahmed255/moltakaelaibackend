@@ -8,7 +8,27 @@ const Ad = require('../models/Ad');
 const Settings = require('../models/Settings');
 const Review = require('../models/Review');
 
-// All admin routes require authentication
+// Public admin auth routes (no Bearer token required)
+router.post('/login', (req, res) => {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    return res.status(500).json({ error: 'Admin password is not configured on server.' });
+  }
+
+  const password = String(req.body?.password || '').trim();
+  if (password === adminPassword.trim()) {
+    return res.json({ success: true });
+  }
+
+  return res.status(401).json({ error: 'Invalid password' });
+});
+
+router.get('/verify', requireAdmin, (_req, res) => {
+  res.json({ success: true });
+});
+
+// All routes below require a valid ADMIN_SECRET Bearer token
 router.use(requireAdmin);
 
 // ============ Tools ============
